@@ -1,0 +1,97 @@
+name: Build and Package GDExtension
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    name: Build on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            platform: linux
+          - os: windows-latest
+            platform: windows
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      # Setup Python & SCons (Required for godot-cpp)
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install SCons
+        run: pip install scons
+
+      # Setup Rust (For SNL Library)
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      # Setup CMake & Ninja
+      - name: Setup Ninja
+        uses: getsentry/action-setup-ninja@v1
+
+      # Configure CMake
+      - name: Configure CMake
+        run: |
+          cmake -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release
+
+      # Build the Extension (Includes Rust compilation via Corrosion)
+      - name: Build GDExtension
+        run: cmake --build build --target GodotPP
+
+      # Setup Godot Binary (Run your custom script)
+      - name: Download Godot Engine
+        run: cmake --build build --target setup
+
+      # SInstall Godot Export Templates
+      - name: Install Godot Export Templates
+        shell: bash
+        run: |
+          VERSION="4.6"
+          STATUS="stable"
+          
+          # Set Template Directory based on Matrix OS
+          if [ "${{ matrix.platform }}" = "windows" ]; then
+            TEMPLATE_DIR="/c/Users/runneradmin/AppData/Roaming/Godot/export_templates/${VERSION}.${STATUS}"
+          else
+            TEMPLATE_DIR="$HOME/.local/share/godot/export_templates/${VERSION}.${STATUS}"
+          fi
+          
+          # Download and Extract
+          mkdir -p "$TEMPLATE_DIR"
+          URL="https://github.com/godotengine/godot/releases/download/${VERSION}-${STATUS}/Godot_v${VERSION}-${STATUS}_export_templates.tpz"
+          
+          echo "Downloading templates to $TEMPLATE_DIR..."
+          curl -L "$URL" -o templates.zip
+          unzip templates.zip -d "$TEMPLATE_DIR"
+          
+          # Godot templates are inside a 'templates/' folder in the zip; move them up
+          mv "$TEMPLATE_DIR/templates/"* "$TEMPLATE_DIR/"
+          rm -rf "$TEMPLATE_DIR/templates"
+          rm templates.zip
+
+      # Package the Game
+      - name: Package Release
+        run: cmake --build build --target package
+
+      # Upload Artifacts
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: gdextension-${{ matrix.platform }}
+          path: |
+            build/dist/*
+            demo/bin/
