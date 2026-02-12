@@ -2,6 +2,7 @@
 #define GDEXAMPLE_H
 
 #include <godot_cpp/classes/sprite2d.hpp>
+#include "snl.h"
 
 namespace godot {
     class GDExample : public Sprite2D {
@@ -17,7 +18,11 @@ namespace godot {
         GDExample();
         ~GDExample();
 
+        GameSocket *socket;
+
         void _process(double delta) override;
+
+        void _ready() override;;
     };
 }
 #endif
