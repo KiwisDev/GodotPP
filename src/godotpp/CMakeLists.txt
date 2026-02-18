@@ -2,7 +2,6 @@
 add_library(GodotPP SHARED
         src/gd_example.cpp
         src/register_types.cpp
-        ../shared/PacketDefinition.h
 )
 target_link_libraries(GodotPP PRIVATE
         godot::cpp
