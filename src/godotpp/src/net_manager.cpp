@@ -1,5 +1,6 @@
 #include "net_manager.h"
 
+#include <godot_cpp/classes/node2d.hpp>
 #include <godot_cpp/classes/resource_loader.hpp>
 
 godot::NetworkManager::NetworkManager() {}
@@ -13,10 +14,15 @@ void godot::NetworkManager::_ready()
     socket = net_socket_create("127.0.0.1:0");
 
     if (socket) {
-        // TODO: Send Spawn packet
-        uint8_t data[1] = {0x48};
-        net_socket_send(socket, "127.0.0.1:5000", data, sizeof(data));
-    }
+        // Send hello packet with x y
+        HelloPacket packet;
+        packet.type = PacketType::HELLO;
+        packet.x = (rand() % (1024 + 1)) - 512;
+        packet.x = (rand() % (512 + 1)) - 256;
+
+        UtilityFunctions::print("[CLIENT] Send hello at: ", packet.x, ", ", packet.y);
+        net_socket_send(socket, server_address, (uint8_t*)&packet, sizeof(HelloPacket));
+    } else UtilityFunctions::print("[CLIENT] Socket could not be created");
 
     linking_context = LinkingContext();
     linking_context.register_type(1, []() -> Node*
@@ -43,10 +49,13 @@ void godot::NetworkManager::_process(double delta)
                 if (spawned_node)
                 {
                     add_child(spawned_node);
-                    UtilityFunctions::print("[CLIENT] Spawned ID: ", packet->netID);
+                    Node2D* spawned_node_2d = dynamic_cast<Node2D*>(spawned_node);
+                    if (spawned_node_2d != nullptr) spawned_node_2d->set_position(Vector2(packet->x, packet->y));
+                    UtilityFunctions::print("[CLIENT] Spawned ID: ", packet->netID, " at: ", packet->x, ", ", packet->y);
                 }
             }
         }
+        else UtilityFunctions::print("[CLIENT] Packet not of type SPAWN");
     }
 }
 

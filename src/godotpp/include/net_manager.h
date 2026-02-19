@@ -13,6 +13,7 @@ namespace godot {
         GDCLASS(NetworkManager, Node)
 
     protected:
+        const char* server_address = "127.0.0.1:5000";
         GameSocket *socket;
 
         LinkingContext linking_context;
