@@ -91,7 +91,7 @@ int main() {
                             std::cout << "[SERVER] Sending previously connected client to new client" << std::endl;
 
                             SpawnPacket new_packet;
-                            packet.type = PacketType::SPAWN;
+                            new_packet.type = PacketType::SPAWN;
                             new_packet.netID = player_object.netID;
                             new_packet.typeID = 1;
                             new_packet.x = player_object.x;

@@ -40,6 +40,7 @@ void godot::NetworkManager::_process(double delta)
     if (bytes_read > 0) { // There is data
         PacketType packet_type = (PacketType)read_buffer[0];
 
+        UtilityFunctions::print("[CLIENT] Packet of type ", (uint8_t)packet_type);
         if (packet_type == PacketType::SPAWN)
         {
             SpawnPacket* packet = reinterpret_cast<SpawnPacket*>(read_buffer);
@@ -55,7 +56,10 @@ void godot::NetworkManager::_process(double delta)
                 }
             }
         }
-        else UtilityFunctions::print("[CLIENT] Packet not of type SPAWN");
+        else
+        {
+            UtilityFunctions::print("[CLIENT] Packet not of type SPAWN ", (uint8_t)packet_type);
+        }
     }
 }
 
