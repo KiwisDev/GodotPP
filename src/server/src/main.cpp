@@ -83,7 +83,6 @@ int main() {
                     ++next_userID;
                     ++next_netID;
 
-                    // TODO: Send previously connected clients to new client
                     for (const auto& player_object : player_objects)
                     {
                         if (player_object.netID != packet.netID)
