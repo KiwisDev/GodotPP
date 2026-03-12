@@ -1,5 +1,6 @@
 #include "net_manager.h"
 
+#include <random>
 #include <godot_cpp/classes/node2d.hpp>
 #include <godot_cpp/classes/resource_loader.hpp>
 
@@ -17,8 +18,11 @@ void godot::NetworkManager::_ready()
         // Send hello packet with x y
         HelloPacket packet;
         packet.type = PacketType::HELLO;
-        packet.x = (rand() % (1024 + 1)) - 512;
-        packet.x = (rand() % (512 + 1)) - 256;
+        std::random_device rd;
+        std::mt19937 gen(rd());
+        std::uniform_int_distribution<> distrib(-512, 512);
+        packet.x = distrib(gen);
+        packet.y = distrib(gen) / 2;
 
         UtilityFunctions::print("[CLIENT] Send hello at: ", packet.x, ", ", packet.y);
         net_socket_send(socket, server_address, (uint8_t*)&packet, sizeof(HelloPacket));
