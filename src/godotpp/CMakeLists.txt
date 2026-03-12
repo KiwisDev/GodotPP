@@ -4,13 +4,13 @@ add_library(GodotPP SHARED
         src/register_types.cpp
         src/net_manager.cpp
         include/net_manager.h
-        ../shared/include/net_protocol.h
         src/linking_context.cpp
         include/linking_context.h
 )
 target_link_libraries(GodotPP PRIVATE
         godot::cpp
         snl
+        shared
 )
 target_include_directories(GodotPP PUBLIC include)
 

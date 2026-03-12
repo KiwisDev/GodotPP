@@ -4,7 +4,7 @@
 #include <unordered_map>
 #include <functional>
 
-#include "../../shared/include/net_protocol.h"
+#include <net_protocol.h>
 
 #include <godot_cpp/classes/node.hpp>
 

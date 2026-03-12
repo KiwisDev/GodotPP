@@ -1,10 +1,9 @@
 #include <iostream>
 #include <snl.h>
+#include <net_protocol.h>
 #include <vector>
 #include <cstring>
 #include <algorithm>
-
-#include "../../shared/include/net_protocol.h"
 
 struct Client
 {
