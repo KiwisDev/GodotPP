@@ -11,9 +11,13 @@ config_version=5
 [application]
 
 config/name="GodotPP"
-run/main_scene="uid://dp0vhmk4t8jgu"
+run/main_scene="uid://tngy4jf0ybhl"
 config/features=PackedStringArray("4.6", "Forward Plus")
 config/icon="res://icon.svg"
+
+[autoload]
+
+GameInstance="*uid://dh3q1kue1cvi"
 
 [physics]
 

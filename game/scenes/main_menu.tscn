@@ -1,0 +1,53 @@
+[gd_scene format=3 uid="uid://tngy4jf0ybhl"]
+
+[ext_resource type="Script" uid="uid://bg6t5a6octxrp" path="res://scripts/scenes/main_menu.gd" id="1_l6cm7"]
+
+[node name="MainMenu" type="Control" unique_id=1701745548]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_l6cm7")
+
+[node name="ColorRect" type="ColorRect" parent="." unique_id=179133985]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.3372549, 0.61960787, 1, 1)
+
+[node name="IP_Input" type="LineEdit" parent="." unique_id=248103688]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -125.0
+offset_top = -69.0
+offset_right = 125.0
+offset_bottom = -29.0
+grow_horizontal = 2
+grow_vertical = 2
+text = "127.0.0.1:5000"
+placeholder_text = "IP"
+
+[node name="ConnectButton" type="Button" parent="." unique_id=104876398]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -100.0
+offset_top = 26.0
+offset_right = 100.0
+offset_bottom = 76.0
+grow_horizontal = 2
+grow_vertical = 2
+text = "Connect
+"

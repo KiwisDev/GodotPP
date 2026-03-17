@@ -1,7 +1,14 @@
 [gd_scene format=3 uid="uid://dp0vhmk4t8jgu"]
 
+[ext_resource type="Script" uid="uid://mw30rjflios5" path="res://scripts/scenes/game_scene.gd" id="1_uwrxv"]
+[ext_resource type="PackedScene" uid="uid://cy3ms3exq83es" path="res://scenes/escape_menu.tscn" id="2_yqjtg"]
+
 [node name="Game" type="Node" unique_id=1441151470]
+script = ExtResource("1_uwrxv")
 
 [node name="Camera2D" type="Camera2D" parent="." unique_id=852441175]
 
-[node name="NetworkManager" type="NetworkManager" parent="." unique_id=1375678209]
+[node name="NetworkManager" type="NetworkManager" parent="." unique_id=1375678209 groups=["NetworkManager"]]
+
+[node name="EscapeMenu" parent="." unique_id=2126278407 instance=ExtResource("2_yqjtg")]
+visible = false
