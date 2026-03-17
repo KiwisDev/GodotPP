@@ -39,7 +39,9 @@ int main() {
             PacketType packet_type = (PacketType)read_buffer[0];
             HelloPacket* hello_packet = reinterpret_cast<HelloPacket*>(read_buffer);
 
+            // Hello packet
             if (packet_type == PacketType::HELLO) {
+                //Check if a client already exist at this IP
                 auto it = std::find_if(clients.begin(), clients.end(), [&](const Client& c)
                 {
                    if (std::strncmp(sender_address, c.address, 128) == 0)
@@ -54,6 +56,7 @@ int main() {
                 {
                     std::cout << "[SERVER] New connection from " << sender_address << std::endl;
 
+                    // Add the client to the client list
                     Client new_client;
                     memcpy(new_client.address, sender_address, sizeof(new_client.address));
                     new_client.id = next_userID;
@@ -61,12 +64,14 @@ int main() {
 
                     std::cout << "[SERVER] Spawn Node ID " << next_netID << " at " << hello_packet->x << " " << hello_packet->y << std::endl;
 
+                    // Spawn a player object associated with the new client in the world
                     PlayerObject new_player_object;
                     new_player_object.x = hello_packet->x;
                     new_player_object.y = hello_packet->y;
                     new_player_object.netID = next_netID;
                     player_objects.push_back(new_player_object);
 
+                    // Send a spawn packet to all connected clients
                     SpawnPacket packet;
                     packet.type = PacketType::SPAWN;
                     packet.netID = next_netID;
@@ -82,6 +87,7 @@ int main() {
                     ++next_userID;
                     ++next_netID;
 
+                    // Send the current state of the world to the new clients (already connected players)
                     for (const auto& player_object : player_objects)
                     {
                         if (player_object.netID != packet.netID)
@@ -96,7 +102,7 @@ int main() {
                             new_packet.y = player_object.y;
 
                             net_socket_send(socket, sender_address, (uint8_t*)&new_packet, sizeof(SpawnPacket));
-                        } else std::cout << "[SERVER] This netID is the new client player" << std::endl;
+                        }
                     }
                 }
                 else
