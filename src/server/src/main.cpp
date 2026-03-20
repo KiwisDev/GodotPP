@@ -1,22 +1,18 @@
 #include <iostream>
-#include <snl.h>
-#include <net_protocol.h>
-#include <net_serializer.h>
 #include <vector>
 #include <cstring>
 #include <algorithm>
+
+#include "snl.h"
+#include "net_protocol.h"
+#include "net_serializer.h"
+#include "scene/scene.h"
 
 struct Client
 {
     char address[128];
     uint32_t id;
-};
-
-struct PlayerObject
-{
-    NetID netID;
-    int16_t x;
-    int16_t y;
+    entt::entity controlled_entity;
 };
 
 int main() {
@@ -28,7 +24,7 @@ int main() {
     std::vector<Client> clients;
     uint32_t next_userID = 100;
 
-    std::vector<PlayerObject> player_objects;
+    Scene world;
     uint32_t next_netID = 1;
 
     uint8_t read_buffer[1024];
@@ -57,20 +53,20 @@ int main() {
                 {
                     std::cout << "[SERVER] New connection from " << sender_address << std::endl;
 
+                    std::cout << "[SERVER] Spawn Node ID " << next_netID << " at " << hello_packet->x << " " << hello_packet->y << std::endl;
+
+                    float pos_x = hello_packet->x; float pos_y = hello_packet->y;
+                    entt::entity new_player_entity = world.registry.create();
+                    world.registry.emplace<NetworkComponent>(new_player_entity, next_netID, next_userID);
+                    world.registry.emplace<TransformComponent>(new_player_entity, Vec2{pos_x, pos_y});
+                    world.registry.emplace<VelocityComponent>(new_player_entity);
+
                     // Add the client to the client list
                     Client new_client;
                     memcpy(new_client.address, sender_address, sizeof(new_client.address));
                     new_client.id = next_userID;
+                    new_client.controlled_entity = new_player_entity;
                     clients.push_back(new_client);
-
-                    std::cout << "[SERVER] Spawn Node ID " << next_netID << " at " << hello_packet->x << " " << hello_packet->y << std::endl;
-
-                    // Spawn a player object associated with the new client in the world
-                    PlayerObject new_player_object;
-                    new_player_object.x = hello_packet->x;
-                    new_player_object.y = hello_packet->y;
-                    new_player_object.netID = next_netID;
-                    player_objects.push_back(new_player_object);
 
                     // Send a spawn packet to all connected clients
                     SpawnPacket packet;
@@ -88,19 +84,17 @@ int main() {
                     ++next_userID;
                     ++next_netID;
 
-                    // Send the current state of the world to the new clients (already connected players)
-                    for (const auto& player_object : player_objects)
+                    auto view = world.registry.view<NetworkComponent, TransformComponent>();
+                    for (auto [entity, network, transform] : view.each())
                     {
-                        if (player_object.netID != packet.netID)
+                        if (network.id != packet.netID)
                         {
-                            std::cout << "[SERVER] Sending previously connected client to new client" << std::endl;
-
                             SpawnPacket new_packet;
                             new_packet.type = PacketType::SPAWN;
-                            new_packet.netID = player_object.netID;
+                            new_packet.netID = network.id;
                             new_packet.typeID = 1;
-                            new_packet.x = player_object.x;
-                            new_packet.y = player_object.y;
+                            new_packet.x = transform.position.x;
+                            new_packet.y = transform.position.y;
 
                             net_socket_send(socket, sender_address, (uint8_t*)&new_packet, sizeof(SpawnPacket));
                         }
