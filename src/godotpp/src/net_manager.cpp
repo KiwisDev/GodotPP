@@ -19,6 +19,13 @@ int NetworkManager::try_connect(const String &address)
     server_address = address;
     socket = net_socket_create("127.0.0.1:0");
 
+    linking_context = LinkingContext();
+    linking_context.register_type(1, []() -> Node*
+    {
+        Ref<PackedScene> player_scene = ResourceLoader::get_singleton()->load("res://player.tscn");
+        return player_scene->instantiate();
+    });
+
     if (socket) {
         set_process(true);
 
@@ -38,13 +45,6 @@ int NetworkManager::try_connect(const String &address)
     {
         UtilityFunctions::print("[CLIENT] Socket could not be created");
     }
-
-    linking_context = LinkingContext();
-    linking_context.register_type(1, []() -> Node*
-    {
-        Ref<PackedScene> player_scene = ResourceLoader::get_singleton()->load("res://player.tscn");
-        return player_scene->instantiate();
-    });
 
     return 0;
 }

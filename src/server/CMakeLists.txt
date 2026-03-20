@@ -3,6 +3,8 @@ add_executable(GodotPPServer
         include/types.h
 )
 
+target_include_directories(GodotPPServer PRIVATE include)
+
 target_link_libraries(GodotPPServer PRIVATE
         snl
         shared

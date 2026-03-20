@@ -1,6 +1,7 @@
 #include <iostream>
 #include <snl.h>
 #include <net_protocol.h>
+#include <net_serializer.h>
 #include <vector>
 #include <cstring>
 #include <algorithm>
