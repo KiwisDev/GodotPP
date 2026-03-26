@@ -60,18 +60,27 @@ void godot::NetworkManager::_process(double delta)
             PacketType packet_type = (PacketType)read_buffer[0];
 
             UtilityFunctions::print("[CLIENT] Packet of type ", (uint8_t)packet_type);
-            if (packet_type == PacketType::SPAWN)
+            if (packet_type == PacketType::WORLD)
             {
-                SpawnPacket* packet = reinterpret_cast<SpawnPacket*>(read_buffer);
-                if (bytes_read >= sizeof(SpawnPacket))
+                WorldPacket* packet = reinterpret_cast<WorldPacket*>(read_buffer);
+                if (bytes_read >= sizeof(WorldPacket))
                 {
-                    Node* spawned_node = linking_context.spawn_network_object(packet->netID, packet->typeID);
-                    if (spawned_node)
+                    Node* netNode = linking_context.get_node(packet->netID);
+                    if (netNode == nullptr)
                     {
-                        add_child(spawned_node);
-                        Node2D* spawned_node_2d = dynamic_cast<Node2D*>(spawned_node);
-                        if (spawned_node_2d != nullptr) spawned_node_2d->set_position(Vector2(packet->x, packet->y));
-                        UtilityFunctions::print("[CLIENT] Spawned ID: ", packet->netID, " at: ", packet->x, ", ", packet->y);
+                        Node* spawned_node = linking_context.spawn_network_object(packet->netID, packet->typeID);
+                        if (spawned_node)
+                        {
+                            add_child(spawned_node);
+                            Node2D* spawned_node_2d = dynamic_cast<Node2D*>(spawned_node);
+                            if (spawned_node_2d != nullptr) spawned_node_2d->set_position(Vector2(packet->x, packet->y));
+                            UtilityFunctions::print("[CLIENT] Spawned ID: ", packet->netID, " at: ", packet->x, ", ", packet->y);
+                        }
+                    }
+                    else
+                    {
+                        Node2D* node = dynamic_cast<Node2D*>(netNode);
+                        node->set_position(Vector2(packet->x, packet->y));
                     }
                 }
             }

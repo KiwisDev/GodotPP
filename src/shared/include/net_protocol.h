@@ -8,13 +8,13 @@ using TypeID = uint32_t;
 
 enum class PacketType : uint8_t
 {
-    SPAWN = 1,
+    WORLD = 1,
     HELLO = 2,
     INPUT = 3
 };
 
 #pragma pack(push, 1)
-struct SpawnPacket
+struct WorldPacket
 {
     PacketType type; // 8 bits
     NetID netID; // 32 bits

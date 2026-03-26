@@ -18,11 +18,10 @@ struct ClientComponent
 {
     char address[128];
     uint32_t id;
+    uint32_t last_processed_sequence = 0;
+    bool is_first_input_packet = true;
 
-    ClientComponent(const char client_address[128], uint32_t id) : id(id)
-    {
-        memcpy(address, client_address, 128);
-    }
+    ClientComponent(const char client_address[128], uint32_t id) : id(id) { memcpy(address, client_address, 128); }
 };
 
 struct TransformComponent

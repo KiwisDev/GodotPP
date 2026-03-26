@@ -1,7 +1,5 @@
 #include <iostream>
-#include <vector>
 #include <cstring>
-#include <algorithm>
 #include <chrono>
 #include <thread>
 
@@ -9,6 +7,8 @@
 #include "net_protocol.h"
 #include "net_serializer.h"
 #include "scene/scene.h"
+
+void process_client_input(TransformComponent& transform, const InputData& input);
 
 int main() {
     std::cout << "Init server" << std::endl;
@@ -26,7 +26,8 @@ int main() {
     using clock = std::chrono::steady_clock;
     const std::chrono::duration<double> target_duration(1.0 / 60.0);
 
-    while (true) {
+    while (true)
+    {
         auto frame_start = clock::now();
 
         int32_t bytes_read = net_socket_poll(socket, read_buffer, 1024, sender_address, 128);
@@ -34,7 +35,8 @@ int main() {
             PacketType packet_type = (PacketType)read_buffer[0];
 
             // Hello packet
-            if (packet_type == PacketType::HELLO) {
+            if (packet_type == PacketType::HELLO)
+            {
                 HelloPacket* hello_packet = reinterpret_cast<HelloPacket*>(read_buffer);
 
                 auto clients_view = world.registry.view<ClientComponent>();
@@ -63,46 +65,70 @@ int main() {
                     world.registry.emplace<VelocityComponent>(new_player_entity);
                     world.registry.emplace<ClientComponent>(new_player_entity, sender_address, next_netID);
 
-                    // Send a spawn packet to all connected clients
-                    SpawnPacket packet;
-                    packet.type = PacketType::SPAWN;
-                    packet.netID = next_netID;
-                    packet.typeID = 1;
-                    packet.x = hello_packet->x;
-                    packet.y = hello_packet->y;
-
-                    for (auto& entity : clients_view)
-                    {
-                        const auto& client = clients_view.get<ClientComponent>(entity);
-                        net_socket_send(socket, client.address, (uint8_t*)&packet, sizeof(SpawnPacket));
-                    }
-
                     ++next_userID;
                     ++next_netID;
-
-                    auto view = world.registry.view<NetworkComponent, TransformComponent>();
-                    for (auto [entity, network, transform] : view.each())
-                    {
-                        if (network.id != packet.netID)
-                        {
-                            SpawnPacket new_packet;
-                            new_packet.type = PacketType::SPAWN;
-                            new_packet.netID = network.id;
-                            new_packet.typeID = 1;
-                            new_packet.x = transform.position.x;
-                            new_packet.y = transform.position.y;
-
-                            net_socket_send(socket, sender_address, (uint8_t*)&new_packet, sizeof(SpawnPacket));
-                        }
-                    }
                 }
-                else
+            }
+            else if (packet_type == PacketType::INPUT)
+            {
+                InputPacket* input_packet = reinterpret_cast<InputPacket*>(read_buffer);
+
+                auto view = world.registry.view<ClientComponent, TransformComponent>();
+
+                // Get the entity associated with the IP
+                for (auto entity : view)
                 {
-                    // TODO: Handle client packet
-                    std::cout << "[SERVER] Old connection from " << sender_address << std::endl;
+                    auto& client = view.get<ClientComponent>(entity);
+                    if (std::strncmp(sender_address, client.address, 128) == 0)
+                    {
+                        for (int i=0; i < 20; ++i)
+                        {
+                            const InputData& input = input_packet->input_history[i];
+
+                            if (!client.is_first_input_packet && input.sequence <= client.last_processed_sequence) continue;
+
+                            auto& transform = view.get<TransformComponent>(entity);
+                            process_client_input(transform, input);
+
+                            client.last_processed_sequence = input.sequence;
+                            client.is_first_input_packet = false;
+                        }
+
+                        break;
+                    }
                 }
             }
         }
+
+        // Send world state
+        std::vector<std::string> address_list;
+        auto clients_view = world.registry.view<ClientComponent>();
+        for (auto entity : clients_view)
+        {
+            auto& client = clients_view.get<ClientComponent>(entity);
+            address_list.emplace_back(client.address);
+            //std::cout << "Added client to send" << std::endl;
+        }
+
+        auto world_view = world.registry.view<TransformComponent, NetworkComponent>();
+        for (auto client_address : address_list)
+        {
+            char char_address[128];
+            std::strncpy(char_address, client_address.c_str(), 128);
+            //std::cout << char_address << std::endl;
+            for (auto [entity, transform, network] : world_view.each())
+            {
+                WorldPacket world_packet;
+                world_packet.type = PacketType::WORLD;
+                world_packet.netID = network.id;
+                world_packet.typeID = 1;
+                world_packet.x = static_cast<int16_t>(transform.position.x);
+                world_packet.y = static_cast<int16_t>(transform.position.y);
+
+                net_socket_send(socket, char_address, (uint8_t*)&world_packet, sizeof(WorldPacket));
+            }
+        }
+
         auto frame_end = clock::now();
         auto elapsed = frame_end - frame_start;
 
@@ -112,4 +138,18 @@ int main() {
     }
 
     return 0;
+}
+
+void process_client_input(TransformComponent& transform, const InputData& input)
+{
+    bool up = (input.keys & FLAG_UP) != 0;
+    bool down = (input.keys & FLAG_DOWN) != 0;
+    bool left = (input.keys & FLAG_LEFT) != 0;
+    bool right = (input.keys & FLAG_RIGHT) != 0;
+    bool action = (input.keys & FLAG_ACTION) != 0;
+
+    if (up) transform.position.y += 10 * (1.0f/60.0f);
+    if (down) transform.position.y -= 10 * (1.0f/60.0f);
+    if (left) transform.position.x -= 10 * (1.0f/60.0f);
+    if (right) transform.position.x += 10 * (1.0f/60.0f);
 }
