@@ -6,6 +6,8 @@ add_library(GodotPP SHARED
         include/net_manager.h
         src/linking_context.cpp
         include/linking_context.h
+        include/player_controller.h
+        src/player_controller.cpp
 )
 target_link_libraries(GodotPP PRIVATE
         godot::cpp

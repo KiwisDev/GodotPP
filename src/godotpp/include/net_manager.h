@@ -9,7 +9,8 @@
 #include <godot_cpp/classes/packed_scene.hpp>
 
 namespace godot {
-    class NetworkManager : public Node {
+    class NetworkManager : public Node
+    {
         GDCLASS(NetworkManager, Node)
 
     protected:
@@ -30,6 +31,8 @@ namespace godot {
         void _process(double delta) override;
 
         int try_connect(const String &address);
+
+        void send_packet(const uint8_t* data, size_t size);
 
         void disconnect();
 

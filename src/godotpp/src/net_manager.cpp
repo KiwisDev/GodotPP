@@ -49,6 +49,18 @@ int NetworkManager::try_connect(const String &address)
     return 0;
 }
 
+void NetworkManager::send_packet(const uint8_t* data, size_t size)
+{
+    if (socket)
+    {
+        net_socket_send(socket, server_address.utf8().get_data(), data, size);
+    }
+    else
+    {
+        UtilityFunctions::print("[CLIENT] Tried to send packet but socket was invalid");
+    }
+}
+
 void godot::NetworkManager::_process(double delta)
 {
     Node::_process(delta);
@@ -59,7 +71,6 @@ void godot::NetworkManager::_process(double delta)
         if (bytes_read > 0) { // There is data
             PacketType packet_type = (PacketType)read_buffer[0];
 
-            UtilityFunctions::print("[CLIENT] Packet of type ", (uint8_t)packet_type);
             if (packet_type == PacketType::WORLD)
             {
                 WorldPacket* packet = reinterpret_cast<WorldPacket*>(read_buffer);
@@ -83,10 +94,6 @@ void godot::NetworkManager::_process(double delta)
                         node->set_position(Vector2(packet->x, packet->y));
                     }
                 }
-            }
-            else
-            {
-                UtilityFunctions::print("[CLIENT] Packet not of type SPAWN ", (uint8_t)packet_type);
             }
         }
     }

@@ -142,14 +142,15 @@ int main() {
 
 void process_client_input(TransformComponent& transform, const InputData& input)
 {
+    std::cout << "[SERVER] Received client input: " << input.sequence << std::endl;
     bool up = (input.keys & FLAG_UP) != 0;
     bool down = (input.keys & FLAG_DOWN) != 0;
     bool left = (input.keys & FLAG_LEFT) != 0;
     bool right = (input.keys & FLAG_RIGHT) != 0;
     bool action = (input.keys & FLAG_ACTION) != 0;
 
-    if (up) transform.position.y += 10 * (1.0f/60.0f);
-    if (down) transform.position.y -= 10 * (1.0f/60.0f);
-    if (left) transform.position.x -= 10 * (1.0f/60.0f);
-    if (right) transform.position.x += 10 * (1.0f/60.0f);
+    if (up) transform.position.y -= 50 * (1.0f/60.0f);
+    if (down) transform.position.y += 50 * (1.0f/60.0f);
+    if (left) transform.position.x -= 50 * (1.0f/60.0f);
+    if (right) transform.position.x += 50 * (1.0f/60.0f);
 }

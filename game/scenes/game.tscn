@@ -12,3 +12,5 @@ script = ExtResource("1_uwrxv")
 
 [node name="EscapeMenu" parent="." unique_id=2126278407 instance=ExtResource("2_yqjtg")]
 visible = false
+
+[node name="PlayerController" type="PlayerController" parent="." unique_id=908257214]

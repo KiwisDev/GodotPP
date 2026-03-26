@@ -1,6 +1,7 @@
 #include "register_types.h"
 #include "gd_example.h"
 #include "net_manager.h"
+#include "player_controller.h"
 
 #include <gdextension_interface.h>
 #include <godot_cpp/core/defs.hpp>
@@ -16,6 +17,7 @@ void initialize_module(ModuleInitializationLevel p_level) {
     // Register your custom Node2D
     ClassDB::register_class<GDExample>();
     ClassDB::register_class<NetworkManager>();
+    ClassDB::register_class<PlayerController>();
 }
 
 void uninitialize_module(ModuleInitializationLevel p_level) {
