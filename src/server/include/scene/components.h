@@ -2,6 +2,7 @@
 #define GODOTPP_COMPONENTS_H
 
 #include <cstdint>
+#include <cstring>
 
 #include "maths_types.h"
 #include "net_protocol.h"
@@ -9,9 +10,19 @@
 struct NetworkComponent
 {
     NetID id;
-    uint32_t client_owner_id;
 
-    NetworkComponent(NetID id, uint32_t client_owner_id) : id(id), client_owner_id(client_owner_id) {}
+    NetworkComponent(NetID id) : id(id) {}
+};
+
+struct ClientComponent
+{
+    char address[128];
+    uint32_t id;
+
+    ClientComponent(const char client_address[128], uint32_t id) : id(id)
+    {
+        memcpy(address, client_address, 128);
+    }
 };
 
 struct TransformComponent

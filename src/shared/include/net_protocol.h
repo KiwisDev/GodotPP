@@ -55,7 +55,7 @@ enum InputFlags : uint8_t {
     FLAG_LEFT   = 1 << 2, // 0000 0100
     FLAG_RIGHT  = 1 << 3, // 0000 1000
     FLAG_ACTION = 1 << 4  // 0001 0000
-};print[hello world]"""""""""
+};
 
 
 #endif //GODOTPP_NET_PROTOCOL_H

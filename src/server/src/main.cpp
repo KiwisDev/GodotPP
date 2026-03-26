@@ -10,23 +10,14 @@
 #include "net_serializer.h"
 #include "scene/scene.h"
 
-struct Client
-{
-    char address[128];
-    uint32_t id;
-    entt::entity controlled_entity;
-};
-
 int main() {
     std::cout << "Init server" << std::endl;
 
     GameSocket* socket = net_socket_create("0.0.0.0:5000");
     std::cout << "Listening to port 5000" << std::endl;
 
-    std::vector<Client> clients;
-    uint32_t next_userID = 100;
-
     Scene world;
+    uint32_t next_userID = 100;
     uint32_t next_netID = 1;
 
     uint8_t read_buffer[1024];
@@ -45,16 +36,19 @@ int main() {
             // Hello packet
             if (packet_type == PacketType::HELLO) {
                 HelloPacket* hello_packet = reinterpret_cast<HelloPacket*>(read_buffer);
-                //Check if a client already exist at this IP
-                auto it = std::find_if(clients.begin(), clients.end(), [&](const Client& c)
-                {
-                   if (std::strncmp(sender_address, c.address, 128) == 0)
-                   {
-                       return true;
-                   } else return false;
-                });
 
-                bool is_new_client = (it == clients.end());
+                auto clients_view = world.registry.view<ClientComponent>();
+                bool is_new_client = true;
+
+                for (auto entity : clients_view)
+                {
+                    const auto& client = clients_view.get<ClientComponent>(entity);
+                    if (std::strncmp(sender_address, client.address, 128) == 0)
+                    {
+                        is_new_client = false;
+                        break;
+                    }
+                }
 
                 if (is_new_client)
                 {
@@ -64,16 +58,10 @@ int main() {
 
                     float pos_x = hello_packet->x; float pos_y = hello_packet->y;
                     entt::entity new_player_entity = world.registry.create();
-                    world.registry.emplace<NetworkComponent>(new_player_entity, next_netID, next_userID);
+                    world.registry.emplace<NetworkComponent>(new_player_entity, next_netID);
                     world.registry.emplace<TransformComponent>(new_player_entity, Vec2{pos_x, pos_y});
                     world.registry.emplace<VelocityComponent>(new_player_entity);
-
-                    // Add the client to the client list
-                    Client new_client;
-                    memcpy(new_client.address, sender_address, sizeof(new_client.address));
-                    new_client.id = next_userID;
-                    new_client.controlled_entity = new_player_entity;
-                    clients.push_back(new_client);
+                    world.registry.emplace<ClientComponent>(new_player_entity, sender_address, next_netID);
 
                     // Send a spawn packet to all connected clients
                     SpawnPacket packet;
@@ -83,8 +71,9 @@ int main() {
                     packet.x = hello_packet->x;
                     packet.y = hello_packet->y;
 
-                    for (const auto& client : clients)
+                    for (auto& entity : clients_view)
                     {
+                        const auto& client = clients_view.get<ClientComponent>(entity);
                         net_socket_send(socket, client.address, (uint8_t*)&packet, sizeof(SpawnPacket));
                     }
 
