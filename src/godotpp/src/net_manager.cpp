@@ -1,6 +1,7 @@
 #include "net_manager.h"
 
 #include <random>
+#include <utils.h>
 #include <godot_cpp/classes/node2d.hpp>
 #include <godot_cpp/classes/resource_loader.hpp>
 
@@ -65,10 +66,18 @@ void godot::NetworkManager::_process(double delta)
 {
     Node::_process(delta);
 
+    ping_timer += delta;
+
     if (socket)
     {
-        int32_t bytes_read = net_socket_poll(socket, read_buffer, 1024, sender_address, 128);
-        if (bytes_read > 0) { // There is data
+
+        while (true) {
+            int32_t bytes_read = net_socket_poll(socket, read_buffer, 1024, sender_address, 128);
+            if (bytes_read <= 0)
+            {
+                break;
+            }
+
             PacketType packet_type = (PacketType)read_buffer[0];
 
             if (packet_type == PacketType::WORLD)
@@ -95,6 +104,27 @@ void godot::NetworkManager::_process(double delta)
                     }
                 }
             }
+            else if (packet_type == PacketType::PONG)
+            {
+                PingResponse* pong_packet = reinterpret_cast<PingResponse*>(read_buffer);
+
+                uint64_t t2 = now_ms();
+                uint64_t rtt = t2 - pong_packet->t0;
+
+                UtilityFunctions::print("[PING #", pong_packet->id, "] RTT = ", rtt, " ms");
+            }
+        }
+
+        if (ping_timer >= 1.0f)
+        {
+            ping_timer = 0.0f;
+
+            PingRequest ping_packet;
+            ping_packet.type = PacketType::PING;
+            ping_packet.id = ping_id_counter++;
+            ping_packet.t0 = now_ms();
+
+            send_packet((uint8_t*)&ping_packet, sizeof(PingRequest));
         }
     }
 }

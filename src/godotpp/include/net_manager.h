@@ -22,6 +22,9 @@ namespace godot {
         uint8_t read_buffer[1024];
         char sender_address[128];
 
+        uint32_t ping_id_counter = 0;
+        float ping_timer = 0.0f;
+
     public:
         NetworkManager();
         ~NetworkManager();

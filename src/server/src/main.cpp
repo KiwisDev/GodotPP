@@ -7,6 +7,7 @@
 #include "net_protocol.h"
 #include "net_serializer.h"
 #include "scene/scene.h"
+#include "utils.h"
 
 void process_client_input(TransformComponent& transform, const InputData& input);
 
@@ -30,8 +31,13 @@ int main() {
     {
         auto frame_start = clock::now();
 
-        int32_t bytes_read = net_socket_poll(socket, read_buffer, 1024, sender_address, 128);
-        if (bytes_read > 0) { // There is data
+        while (true) {
+            int32_t bytes_read = net_socket_poll(socket, read_buffer, 1024, sender_address, 128);
+            if (bytes_read <= 0)
+            {
+                break;
+            }
+
             PacketType packet_type = (PacketType)read_buffer[0];
 
             // Hello packet
@@ -98,6 +104,20 @@ int main() {
                     }
                 }
             }
+            else if (packet_type == PacketType::PING)
+            {
+                PingRequest* ping_packet = reinterpret_cast<PingRequest*>(read_buffer);
+
+                uint64_t t1 = now_ms();
+
+                PingResponse pong_packet;
+                pong_packet.type = PacketType::PONG;
+                pong_packet.id = ping_packet->id;
+                pong_packet.t0 = ping_packet->t0;
+                pong_packet.t1 = t1;
+
+                net_socket_send(socket, sender_address, (uint8_t*)&pong_packet, sizeof(PingResponse));
+            }
         }
 
         // Send world state
@@ -107,7 +127,6 @@ int main() {
         {
             auto& client = clients_view.get<ClientComponent>(entity);
             address_list.emplace_back(client.address);
-            //std::cout << "Added client to send" << std::endl;
         }
 
         auto world_view = world.registry.view<TransformComponent, NetworkComponent>();
@@ -115,7 +134,6 @@ int main() {
         {
             char char_address[128];
             std::strncpy(char_address, client_address.c_str(), 128);
-            //std::cout << char_address << std::endl;
             for (auto [entity, transform, network] : world_view.each())
             {
                 WorldPacket world_packet;
