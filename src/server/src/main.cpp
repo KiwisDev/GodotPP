@@ -2,6 +2,8 @@
 #include <vector>
 #include <cstring>
 #include <algorithm>
+#include <chrono>
+#include <thread>
 
 #include "snl.h"
 #include "net_protocol.h"
@@ -30,14 +32,19 @@ int main() {
     uint8_t read_buffer[1024];
     char sender_address[128];
 
+    using clock = std::chrono::steady_clock;
+    const std::chrono::duration<double> target_duration(1.0 / 60.0);
+
     while (true) {
+        auto frame_start = clock::now();
+
         int32_t bytes_read = net_socket_poll(socket, read_buffer, 1024, sender_address, 128);
         if (bytes_read > 0) { // There is data
             PacketType packet_type = (PacketType)read_buffer[0];
-            HelloPacket* hello_packet = reinterpret_cast<HelloPacket*>(read_buffer);
 
             // Hello packet
             if (packet_type == PacketType::HELLO) {
+                HelloPacket* hello_packet = reinterpret_cast<HelloPacket*>(read_buffer);
                 //Check if a client already exist at this IP
                 auto it = std::find_if(clients.begin(), clients.end(), [&](const Client& c)
                 {
@@ -106,6 +113,12 @@ int main() {
                     std::cout << "[SERVER] Old connection from " << sender_address << std::endl;
                 }
             }
+        }
+        auto frame_end = clock::now();
+        auto elapsed = frame_end - frame_start;
+
+        if (elapsed < target_duration) {
+            std::this_thread::sleep_for(target_duration - elapsed);
         }
     }
 
