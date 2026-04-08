@@ -2,6 +2,7 @@
 #define GODOTPP_NET_PROTOCOL_H
 
 #include <cstdint>
+#include <vector>
 
 using NetID = uint32_t;
 using TypeID = uint32_t;
@@ -12,7 +13,8 @@ enum class PacketType : uint8_t
     HELLO = 2,
     INPUT = 3,
     PING = 4,
-    PONG = 5
+    PONG = 5,
+    WORLD_SNAPSHOT = 6
 };
 
 #pragma pack(push, 1)
@@ -23,6 +25,14 @@ struct WorldPacket
     TypeID typeID;
     int16_t x;
     int16_t y;
+};
+#pragma pack(pop)
+
+#pragma pack(push, 1)
+struct WorldSnapshotPacket
+{
+    PacketType type;
+    std::vector<uint8_t> data;
 };
 #pragma pack(pop)
 

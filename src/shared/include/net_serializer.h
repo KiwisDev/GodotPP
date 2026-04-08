@@ -8,7 +8,7 @@
 #include <type_traits>
 #include <vector>
 
-template <typename T> struct QuantizedWrite
+/*template <typename T> struct QuantizedWrite
 {
     const T& val; T min_v; T max_v; uint8_t bits;
 };
@@ -23,7 +23,7 @@ auto Quantize(const float& v, float min_v, float max_v, uint8_t bits) {
 }
 auto Quantize(float& v, float min_v, float max_v, uint8_t bits) {
     return QuantizedRead<float>{v, min_v, max_v, bits};
-}
+}*/
 
 template <typename T, typename Archive, typename = void>
 struct has_serialize : std::false_type {};
@@ -67,7 +67,7 @@ public:
     }
 
     // Quantized floats
-    NetWriter& operator<<(const QuantizedWrite<float>& q) {
+    /*NetWriter& operator<<(const QuantizedWrite<float>& q) {
         float clamped = std::clamp(q.val, q.min_v, q.max_v);
         float normalized = (clamped - q.min_v) / (q.max_v - q.min_v);
         uint32_t max_val = (1u << q.bits) - 1;
@@ -77,7 +77,7 @@ public:
         else if (q.bits <= 16) *this << static_cast<uint16_t>(quantized);
         else                   *this << quantized;
         return *this;
-    }
+    }*/
 
     // Maths
     NetWriter& operator<<(const Vec2& v) { return *this << v.x << v.y; }
@@ -190,7 +190,7 @@ public:
     }
 
     // Quantized floats
-    NetReader& operator>>(const QuantizedRead<float>& q) {
+    /*NetReader& operator>>(const QuantizedRead<float>& q) {
         uint32_t quantized = 0;
         if (q.bits <= 8) { uint8_t v; *this >> v; quantized = v; }
         else if (q.bits <= 16) { uint16_t v; *this >> v; quantized = v; }
@@ -200,7 +200,7 @@ public:
         float normalized = static_cast<float>(quantized) / max_val;
         q.val = q.min_v + normalized * (q.max_v - q.min_v);
         return *this;
-    }
+    }*/
 
     // Maths
     NetReader& operator>>(Vec2& v) { return *this >> v.x >> v.y; }

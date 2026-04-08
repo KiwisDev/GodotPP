@@ -5,7 +5,11 @@
 #include <godot_cpp/classes/node2d.hpp>
 #include <godot_cpp/classes/resource_loader.hpp>
 
-godot::NetworkManager::NetworkManager() {}
+#include "net_serializer.h"
+
+godot::NetworkManager::NetworkManager() {
+    set_process(false);
+}
 
 godot::NetworkManager::~NetworkManager() {}
 
@@ -28,8 +32,6 @@ int NetworkManager::try_connect(const String &address)
     });
 
     if (socket) {
-        set_process(true);
-
         // Send hello packet with x y
         HelloPacket packet;
         packet.type = PacketType::HELLO;
@@ -41,6 +43,8 @@ int NetworkManager::try_connect(const String &address)
 
         UtilityFunctions::print("[CLIENT] Send hello at: ", packet.x, ", ", packet.y);
         net_socket_send(socket, server_address.utf8().get_data(), (uint8_t*)&packet, sizeof(HelloPacket));
+
+        set_process(true);
     }
     else
     {
@@ -113,6 +117,12 @@ void godot::NetworkManager::_process(double delta)
 
                 UtilityFunctions::print("[PING #", pong_packet->id, "] RTT = ", rtt, " ms");
             }
+            else if (packet_type == PacketType::WORLD_SNAPSHOT)
+            {
+                WorldSnapshotPacket* snapshot_packet = reinterpret_cast<WorldSnapshotPacket*>(read_buffer);
+                NetReader reader(snapshot_packet->data);
+                process_snapshot(reader);
+            }
         }
 
         if (ping_timer >= 1.0f)
@@ -125,6 +135,40 @@ void godot::NetworkManager::_process(double delta)
             ping_packet.t0 = now_ms();
 
             send_packet((uint8_t*)&ping_packet, sizeof(PingRequest));
+        }
+    }
+}
+
+void NetworkManager::process_snapshot(NetReader& reader)
+{
+    uint32_t entity_count = 0;
+    reader >> entity_count;
+
+    for (uint32_t i = 0; i < entity_count; ++i) {
+        NetID netID = 0;
+        TypeID typeID = 0;
+        Vec2 position {0, 0};
+
+        reader >> netID;
+        reader >> typeID;
+        reader >> position;
+
+        Node* netNode = linking_context.get_node(netID);
+        if (netNode == nullptr)
+        {
+            Node* spawned_node = linking_context.spawn_network_object(netID, typeID);
+            if (spawned_node)
+            {
+                add_child(spawned_node);
+                Node2D* spawned_node_2d = dynamic_cast<Node2D*>(spawned_node);
+                if (spawned_node_2d != nullptr) spawned_node_2d->set_position(Vector2(position.x, position.y));
+                UtilityFunctions::print("[CLIENT] Spawned ID: ", netID, " at: ", position.x, ", ", position.y);
+            }
+        }
+        else
+        {
+            Node2D* node = dynamic_cast<Node2D*>(netNode);
+            node->set_position(Vector2(position.x, position.y));
         }
     }
 }

@@ -11,6 +11,8 @@ public:
     ~Scene();
 
     entt::registry registry;
+
+    std::vector<uint8_t> SerializeWorld();
 };
 
 #endif //GODOTPP_SCENE_H

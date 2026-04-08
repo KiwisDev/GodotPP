@@ -129,6 +129,18 @@ int main() {
             address_list.emplace_back(client.address);
         }
 
+        /*std::vector<uint8_t> world_snapshot = world.SerializeWorld();
+        WorldSnapshotPacket snapshot_packet;
+        snapshot_packet.type = PacketType::WORLD_SNAPSHOT;
+        snapshot_packet.data = world_snapshot;
+
+        for (auto client_address : address_list) {
+            char char_address[128];
+            std::strncpy(char_address, client_address.c_str(), 128);
+
+            net_socket_send(socket, char_address, (uint8_t*)&snapshot_packet, sizeof(snapshot_packet));
+        }*/
+
         auto world_view = world.registry.view<TransformComponent, NetworkComponent>();
         for (auto client_address : address_list)
         {
