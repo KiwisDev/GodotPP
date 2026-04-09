@@ -8,7 +8,7 @@
 #include <godot_cpp/classes/node.hpp>
 #include <godot_cpp/classes/packed_scene.hpp>
 
-#include "net_serializer.h"
+#include "serialization/serializer.h"
 
 namespace godot {
     class NetworkManager : public Node
@@ -42,7 +42,7 @@ namespace godot {
         void disconnect();
 
     protected:
-        void process_snapshot(NetReader& reader);
+        void process_snapshot(StreamReader& reader);
 
         static void _bind_methods();
     };

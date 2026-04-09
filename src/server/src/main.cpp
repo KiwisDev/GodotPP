@@ -5,7 +5,6 @@
 
 #include "snl.h"
 #include "net_protocol.h"
-#include "net_serializer.h"
 #include "scene/scene.h"
 #include "utils.h"
 
@@ -38,12 +37,25 @@ int main() {
                 break;
             }
 
-            PacketType packet_type = (PacketType)read_buffer[0];
+            StreamReader r(read_buffer);
+            auto const k_packet_type = r.read<uint8_t>();
+            if (!k_packet_type)
+            {
+                std::cout << "[SERVER] Failed to read PacketType" << std::endl;
+                continue;
+            }
+            auto packet_type = static_cast<PacketType>(*k_packet_type);
 
-            // Hello packet
             if (packet_type == PacketType::HELLO)
             {
-                HelloPacket* hello_packet = reinterpret_cast<HelloPacket*>(read_buffer);
+                r = StreamReader(read_buffer);
+                auto k_hello_packet = HelloPacket::deserialize(r);
+                if (!k_hello_packet)
+                {
+                    std::cout << "[SERVER] Failed to read HelloPacket" << std::endl;
+                    continue;
+                }
+                HelloPacket hello_packet = *k_hello_packet;
 
                 auto clients_view = world.registry.view<ClientComponent>();
                 bool is_new_client = true;
@@ -62,12 +74,12 @@ int main() {
                 {
                     std::cout << "[SERVER] New connection from " << sender_address << std::endl;
 
-                    std::cout << "[SERVER] Spawn Node ID " << next_netID << " at " << hello_packet->x << " " << hello_packet->y << std::endl;
+                    std::cout << "[SERVER] Spawn Node ID " << next_netID << " at " << hello_packet.x << " " << hello_packet.y << std::endl;
 
-                    float pos_x = hello_packet->x; float pos_y = hello_packet->y;
+                    float pos_x = hello_packet.x; float pos_y = hello_packet.y;
                     entt::entity new_player_entity = world.registry.create();
                     world.registry.emplace<NetworkComponent>(new_player_entity, next_netID);
-                    world.registry.emplace<TransformComponent>(new_player_entity, Vec2{pos_x, pos_y});
+                    world.registry.emplace<TransformComponent>(new_player_entity, glm::vec2{pos_x, pos_y});
                     world.registry.emplace<VelocityComponent>(new_player_entity);
                     world.registry.emplace<ClientComponent>(new_player_entity, sender_address, next_netID);
 
@@ -77,7 +89,14 @@ int main() {
             }
             else if (packet_type == PacketType::INPUT)
             {
-                InputPacket* input_packet = reinterpret_cast<InputPacket*>(read_buffer);
+                r = StreamReader(read_buffer);
+                auto k_input_packet = InputPacket::deserialize(r);
+                if (!k_input_packet)
+                {
+                    std::cout << "[SERVER] Failed to read InputPacket" << std::endl;
+                    continue;
+                }
+                InputPacket input_packet = *k_input_packet;
 
                 auto view = world.registry.view<ClientComponent, TransformComponent>();
 
@@ -89,7 +108,7 @@ int main() {
                     {
                         for (int i=0; i < 20; ++i)
                         {
-                            const InputData& input = input_packet->input_history[i];
+                            const InputData& input = input_packet.input_history[i];
 
                             if (!client.is_first_input_packet && input.sequence <= client.last_processed_sequence) continue;
 
@@ -106,17 +125,28 @@ int main() {
             }
             else if (packet_type == PacketType::PING)
             {
-                PingRequest* ping_packet = reinterpret_cast<PingRequest*>(read_buffer);
+                r = StreamReader(read_buffer);
+                auto k_ping_packet = PingRequest::deserialize(r);
+                if (!k_ping_packet)
+                {
+                    std::cout << "[SERVER] Failed to read PingPacket" << std::endl;
+                    continue;
+                }
+                PingRequest ping_packet = *k_ping_packet;
 
                 uint64_t t1 = now_ms();
 
                 PingResponse pong_packet;
                 pong_packet.type = PacketType::PONG;
-                pong_packet.id = ping_packet->id;
-                pong_packet.t0 = ping_packet->t0;
+                pong_packet.id = ping_packet.id;
+                pong_packet.t0 = ping_packet.t0;
                 pong_packet.t1 = t1;
 
-                net_socket_send(socket, sender_address, (uint8_t*)&pong_packet, sizeof(PingResponse));
+                StreamWriter w;
+                pong_packet.serialize(w);
+                std::vector<uint8_t> pong_data = w.finish();
+
+                net_socket_send(socket, sender_address, pong_data.data(), pong_data.size());
             }
         }
 
@@ -129,34 +159,20 @@ int main() {
             address_list.emplace_back(client.address);
         }
 
-        /*std::vector<uint8_t> world_snapshot = world.SerializeWorld();
+        std::vector<uint8_t> world_snapshot = world.SerializeWorld();
         WorldSnapshotPacket snapshot_packet;
         snapshot_packet.type = PacketType::WORLD_SNAPSHOT;
         snapshot_packet.data = world_snapshot;
+
+        StreamWriter w;
+        snapshot_packet.serialize(w);
+        std::vector<uint8_t> snapshot_data = w.finish();
 
         for (auto client_address : address_list) {
             char char_address[128];
             std::strncpy(char_address, client_address.c_str(), 128);
 
-            net_socket_send(socket, char_address, (uint8_t*)&snapshot_packet, sizeof(snapshot_packet));
-        }*/
-
-        auto world_view = world.registry.view<TransformComponent, NetworkComponent>();
-        for (auto client_address : address_list)
-        {
-            char char_address[128];
-            std::strncpy(char_address, client_address.c_str(), 128);
-            for (auto [entity, transform, network] : world_view.each())
-            {
-                WorldPacket world_packet;
-                world_packet.type = PacketType::WORLD;
-                world_packet.netID = network.id;
-                world_packet.typeID = 1;
-                world_packet.x = static_cast<int16_t>(transform.position.x);
-                world_packet.y = static_cast<int16_t>(transform.position.y);
-
-                net_socket_send(socket, char_address, (uint8_t*)&world_packet, sizeof(WorldPacket));
-            }
+            net_socket_send(socket, char_address, snapshot_data.data(), snapshot_data.size());
         }
 
         auto frame_end = clock::now();
@@ -172,7 +188,6 @@ int main() {
 
 void process_client_input(TransformComponent& transform, const InputData& input)
 {
-    std::cout << "[SERVER] Received client input: " << input.sequence << std::endl;
     bool up = (input.keys & FLAG_UP) != 0;
     bool down = (input.keys & FLAG_DOWN) != 0;
     bool left = (input.keys & FLAG_LEFT) != 0;

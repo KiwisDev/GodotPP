@@ -6,6 +6,7 @@
 
 #include "maths_types.h"
 #include "net_protocol.h"
+#include "glm/vec2.hpp"
 
 struct NetworkComponent
 {
@@ -26,10 +27,10 @@ struct ClientComponent
 
 struct TransformComponent
 {
-    Vec2 position;
-    Vec2 scale;
+    glm::vec2 position;
+    glm::vec2 scale;
 
-    TransformComponent(Vec2 position = {0.0, 0.0}, Vec2 scale = {1.0, 1.0}) : position(position), scale(scale) {}
+    TransformComponent(glm::vec2 position = {0.0, 0.0}, glm::vec2 scale = {1.0, 1.0}) : position(position), scale(scale) {}
 };
 
 struct VelocityComponent

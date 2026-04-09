@@ -5,7 +5,7 @@
 #include <godot_cpp/classes/node2d.hpp>
 #include <godot_cpp/classes/resource_loader.hpp>
 
-#include "net_serializer.h"
+#include "serialization/serializer.h"
 
 godot::NetworkManager::NetworkManager() {
     set_process(false);
@@ -42,7 +42,12 @@ int NetworkManager::try_connect(const String &address)
         packet.y = distrib(gen) / 2;
 
         UtilityFunctions::print("[CLIENT] Send hello at: ", packet.x, ", ", packet.y);
-        net_socket_send(socket, server_address.utf8().get_data(), (uint8_t*)&packet, sizeof(HelloPacket));
+
+        StreamWriter w;
+        packet.serialize(w);
+        std::vector<uint8_t> packet_data = w.finish();
+
+        net_socket_send(socket, server_address.utf8().get_data(), packet_data.data(), packet_data.size());
 
         set_process(true);
     }
@@ -74,7 +79,6 @@ void godot::NetworkManager::_process(double delta)
 
     if (socket)
     {
-
         while (true) {
             int32_t bytes_read = net_socket_poll(socket, read_buffer, 1024, sender_address, 128);
             if (bytes_read <= 0)
@@ -82,45 +86,42 @@ void godot::NetworkManager::_process(double delta)
                 break;
             }
 
-            PacketType packet_type = (PacketType)read_buffer[0];
-
-            if (packet_type == PacketType::WORLD)
+            StreamReader r(read_buffer);
+            auto const k_packet_type = r.read<uint8_t>();
+            if (!k_packet_type)
             {
-                WorldPacket* packet = reinterpret_cast<WorldPacket*>(read_buffer);
-                if (bytes_read >= sizeof(WorldPacket))
-                {
-                    Node* netNode = linking_context.get_node(packet->netID);
-                    if (netNode == nullptr)
-                    {
-                        Node* spawned_node = linking_context.spawn_network_object(packet->netID, packet->typeID);
-                        if (spawned_node)
-                        {
-                            add_child(spawned_node);
-                            Node2D* spawned_node_2d = dynamic_cast<Node2D*>(spawned_node);
-                            if (spawned_node_2d != nullptr) spawned_node_2d->set_position(Vector2(packet->x, packet->y));
-                            UtilityFunctions::print("[CLIENT] Spawned ID: ", packet->netID, " at: ", packet->x, ", ", packet->y);
-                        }
-                    }
-                    else
-                    {
-                        Node2D* node = dynamic_cast<Node2D*>(netNode);
-                        node->set_position(Vector2(packet->x, packet->y));
-                    }
-                }
+                UtilityFunctions::print("[CLIENT] Failed to read PacketType");
+                continue;
             }
-            else if (packet_type == PacketType::PONG)
+            auto packet_type = static_cast<PacketType>(*k_packet_type);
+
+            if (packet_type == PacketType::PONG)
             {
-                PingResponse* pong_packet = reinterpret_cast<PingResponse*>(read_buffer);
+                r = StreamReader(read_buffer);
+                auto k_pong_packet = PingResponse::deserialize(r);
+                if (!k_pong_packet)
+                {
+                    UtilityFunctions::print("[SERVER] Failed to read PingResponse");
+                    continue;
+                }
+                PingResponse pong_packet = *k_pong_packet;
 
                 uint64_t t2 = now_ms();
-                uint64_t rtt = t2 - pong_packet->t0;
+                uint64_t rtt = t2 - pong_packet.t0;
 
-                UtilityFunctions::print("[PING #", pong_packet->id, "] RTT = ", rtt, " ms");
+                UtilityFunctions::print("[PING #", pong_packet.id, "] RTT = ", rtt, " ms");
             }
             else if (packet_type == PacketType::WORLD_SNAPSHOT)
             {
-                WorldSnapshotPacket* snapshot_packet = reinterpret_cast<WorldSnapshotPacket*>(read_buffer);
-                NetReader reader(snapshot_packet->data);
+                r = StreamReader(read_buffer);
+                auto k_snapshot_packet = WorldSnapshotPacket::deserialize(r);
+                if (!k_snapshot_packet)
+                {
+                    UtilityFunctions::print("[SERVER] Failed to read WorldSnapshotPacket");
+                    continue;
+                }
+                WorldSnapshotPacket snapshot_packet = *k_snapshot_packet;
+                StreamReader reader(snapshot_packet.data);
                 process_snapshot(reader);
             }
         }
@@ -134,24 +135,30 @@ void godot::NetworkManager::_process(double delta)
             ping_packet.id = ping_id_counter++;
             ping_packet.t0 = now_ms();
 
-            send_packet((uint8_t*)&ping_packet, sizeof(PingRequest));
+            StreamWriter w;
+            ping_packet.serialize(w);
+            std::vector<uint8_t> ping_data = w.finish();
+
+            send_packet(ping_data.data(), ping_data.size());
         }
     }
 }
 
-void NetworkManager::process_snapshot(NetReader& reader)
+void NetworkManager::process_snapshot(StreamReader& reader)
 {
-    uint32_t entity_count = 0;
-    reader >> entity_count;
+    auto entity_count_opt = reader.read<uint32_t>();
+    if (!entity_count_opt)
+    {
+        UtilityFunctions::print("[CLIENT] No entity count in received snapshot, skipping this snapshot");
+        return;
+    }
+    uint32_t entity_count = entity_count_opt.value();
 
     for (uint32_t i = 0; i < entity_count; ++i) {
-        NetID netID = 0;
-        TypeID typeID = 0;
-        Vec2 position {0, 0};
 
-        reader >> netID;
-        reader >> typeID;
-        reader >> position;
+        NetID netID = reader.read<uint32_t>().value();
+        TypeID typeID = reader.read<uint32_t>().value();
+        glm::vec2 position = reader.read_vec2_quantized(-5000.0f, 5000.0f, 2).value();
 
         Node* netNode = linking_context.get_node(netID);
         if (netNode == nullptr)

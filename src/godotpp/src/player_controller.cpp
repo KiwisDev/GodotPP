@@ -68,10 +68,14 @@ void godot::PlayerController::send_input_packet()
         packet.input_history[start_idx + i] = input_history[i];
     }
 
-    uint8_t* raw_data = reinterpret_cast<uint8_t*>(&packet);
-    size_t raw_data_size = sizeof(packet);
+    StreamWriter w;
+    packet.serialize(w);
+    std::vector<uint8_t> packet_data = w.finish();
 
-    net_manager->send_packet(raw_data, raw_data_size);
+    //uint8_t* raw_data = reinterpret_cast<uint8_t*>(&packet);
+    //size_t raw_data_size = sizeof(packet);
+
+    net_manager->send_packet(packet_data.data(), packet_data.size());
 }
 
 void godot::PlayerController::_bind_methods() {}
