@@ -37,7 +37,7 @@ struct WorldSnapshotPacket
         const auto k_frame_number = r.read<uint64_t>();
         const auto k_data_size = r.read<uint32_t>();
 
-        if (!k_type || k_frame_number || !k_data_size)
+        if (!k_type || !k_frame_number || !k_data_size)
         {
             return std::nullopt;
         }
