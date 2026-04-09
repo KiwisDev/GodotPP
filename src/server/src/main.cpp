@@ -19,6 +19,7 @@ int main() {
     Scene world;
     uint32_t next_userID = 100;
     uint32_t next_netID = 1;
+    int frame_counter = 0;
 
     uint8_t read_buffer[1024];
     char sender_address[128];
@@ -29,6 +30,8 @@ int main() {
     while (true)
     {
         auto frame_start = clock::now();
+
+        ++frame_counter;
 
         while (true) {
             int32_t bytes_read = net_socket_poll(socket, read_buffer, 1024, sender_address, 128);
@@ -162,6 +165,7 @@ int main() {
         std::vector<uint8_t> world_snapshot = world.SerializeWorld();
         WorldSnapshotPacket snapshot_packet;
         snapshot_packet.type = PacketType::WORLD_SNAPSHOT;
+        snapshot_packet.frame_number = frame_counter;
         snapshot_packet.data = world_snapshot;
 
         StreamWriter w;
