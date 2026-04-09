@@ -75,6 +75,11 @@ void godot::NetworkManager::_process(double delta)
 {
     Node::_process(delta);
 
+    process_socket(delta);
+    update_world(delta);
+}
+
+void NetworkManager::process_socket(double delta) {
     ping_timer += delta;
 
     if (socket)
@@ -117,12 +122,17 @@ void godot::NetworkManager::_process(double delta)
                 auto k_snapshot_packet = WorldSnapshotPacket::deserialize(r);
                 if (!k_snapshot_packet)
                 {
-                    UtilityFunctions::print("[SERVER] Failed to read WorldSnapshotPacket");
+                    UtilityFunctions::print("[CLIENT] Failed to read WorldSnapshotPacket");
                     continue;
                 }
                 WorldSnapshotPacket snapshot_packet = *k_snapshot_packet;
-                StreamReader reader(snapshot_packet.data);
-                process_snapshot(reader);
+
+                if (snapshots_history.size() == 0 || (snapshots_history[snapshots_history.size()-1].frame_number < snapshot_packet.frame_number))
+                {
+                    snapshots_history.push_back(WorldSnapshot{snapshot_packet.frame_number});
+                    StreamReader reader(snapshot_packet.data);
+                    process_snapshot(reader, snapshots_history[snapshots_history.size()-1]);
+                }
             }
         }
 
@@ -144,7 +154,85 @@ void godot::NetworkManager::_process(double delta)
     }
 }
 
-void NetworkManager::process_snapshot(StreamReader& reader)
+void NetworkManager::update_world(double delta) {
+    if (snapshots_history.size() >= 2) {
+        if (interpolation_frame == 0)
+        {
+            auto it = std::min_element(snapshots_history.begin(), snapshots_history.end(),
+            [](const WorldSnapshot& a, const WorldSnapshot& b) {
+                    return a.frame_number < b.frame_number;
+                }
+            );
+
+            interpolation_frame = it->frame_number;
+        }
+        else
+        {
+            interpolation_frame += delta;
+        }
+
+        WorldSnapshot* frameA = nullptr;
+        WorldSnapshot* frameB = nullptr;
+
+        for (size_t i = 0; i < snapshots_history.size() - 1; ++i) {
+            if (snapshots_history[i].frame_number <= interpolation_frame && snapshots_history[i + 1].frame_number >= interpolation_frame)
+            {
+                frameA = &snapshots_history[i];
+                frameB = &snapshots_history[i + 1];
+                break;
+            }
+        }
+
+        if (frameA && frameB) {
+            float difference_frames = static_cast<float>(frameB->frame_number - frameA->frame_number);
+            float alpha = (interpolation_frame - frameA->frame_number) / difference_frames;
+
+            std::unordered_map<NetID, const EntitySnapshot*> entities_B;
+            entities_B.reserve(frameB->entities.size());
+
+            for (const auto& entB : frameB->entities)
+            {
+                entities_B[entB.net_id] = &entB;
+            }
+
+            for (const auto& entA : frameA->entities)
+            {
+                auto it = entities_B.find(entA.net_id);
+
+                if (it != entities_B.end())
+                {
+                    const EntitySnapshot* entB = it->second;
+                    glm::vec2 interp_pos = glm::mix(entA.position, entB->position, alpha);
+
+                    Node* netNode = linking_context.get_node(entA.net_id);
+                    Node2D* node = dynamic_cast<Node2D*>(netNode);
+                    node->set_position(Vector2(interp_pos.x, interp_pos.y));
+
+                    entities_B.erase(it);
+                }
+                else
+                {
+                    // Entity has been deleted
+                }
+            }
+
+            for (const auto& pair : entities_B) {
+                const EntitySnapshot* new_entB = pair.second;
+
+                Node* spawned_node = linking_context.spawn_network_object(new_entB->net_id, new_entB->type_id);
+                if (spawned_node)
+                {
+                    add_child(spawned_node);
+                    Node2D* spawned_node_2d = dynamic_cast<Node2D*>(spawned_node);
+                    if (spawned_node_2d != nullptr) spawned_node_2d->set_position(Vector2(new_entB->position.x, new_entB->position.y));
+                    UtilityFunctions::print("[CLIENT] Spawned ID: ", new_entB->net_id, " at: ", new_entB->position.x, ", ", new_entB->position.y);
+                }
+            }
+        }
+    }
+}
+
+void NetworkManager::process_snapshot(StreamReader& reader, WorldSnapshot& snapshot)
 {
     auto entity_count_opt = reader.read<uint32_t>();
     if (!entity_count_opt)
@@ -155,8 +243,19 @@ void NetworkManager::process_snapshot(StreamReader& reader)
     uint32_t entity_count = entity_count_opt.value();
 
     for (uint32_t i = 0; i < entity_count; ++i) {
+        auto const k_netID = reader.read<uint32_t>();
+        auto const k_typeID = reader.read<uint32_t>();
+        auto const k_position = reader.read_vec2_quantized(-5000.0f, 5000.0f, 2);
 
-        NetID netID = reader.read<uint32_t>().value();
+        if (!k_netID || !k_typeID || !k_position) {
+            UtilityFunctions::print("[CLIENT] Failed to read a EntitySnapshot");
+            continue;
+        }
+
+        EntitySnapshot entity_snapshot{*k_netID, *k_typeID, std::move(*k_position)};
+        snapshot.entities.push_back(entity_snapshot);
+
+        /*NetID netID = reader.read<uint32_t>().value();
         TypeID typeID = reader.read<uint32_t>().value();
         glm::vec2 position = reader.read_vec2_quantized(-5000.0f, 5000.0f, 2).value();
 
@@ -176,7 +275,7 @@ void NetworkManager::process_snapshot(StreamReader& reader)
         {
             Node2D* node = dynamic_cast<Node2D*>(netNode);
             node->set_position(Vector2(position.x, position.y));
-        }
+        }*/
     }
 }
 

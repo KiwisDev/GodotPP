@@ -1,14 +1,25 @@
 #ifndef GODOTPP_NET_MANAGER_H
 #define GODOTPP_NET_MANAGER_H
 
-#include <linking_context.h>
-
-#include "snl.h"
+#include <deque>
 
 #include <godot_cpp/classes/node.hpp>
 #include <godot_cpp/classes/packed_scene.hpp>
 
 #include "serialization/serializer.h"
+#include "linking_context.h"
+#include "snl.h"
+
+struct EntitySnapshot {
+    NetID net_id;
+    TypeID type_id;
+    glm::vec2 position;
+};
+
+struct WorldSnapshot {
+    uint64_t frame_number;
+    std::vector<EntitySnapshot> entities;
+};
 
 namespace godot {
     class NetworkManager : public Node
@@ -27,6 +38,9 @@ namespace godot {
         uint32_t ping_id_counter = 0;
         float ping_timer = 0.0f;
 
+        std::deque<WorldSnapshot> snapshots_history;
+        uint64_t interpolation_frame = 0;
+
     public:
         NetworkManager();
         ~NetworkManager();
@@ -42,7 +56,11 @@ namespace godot {
         void disconnect();
 
     protected:
-        void process_snapshot(StreamReader& reader);
+        void process_socket(double delta);
+
+        void update_world(double delta);
+
+        void process_snapshot(StreamReader& reader, WorldSnapshot& snapshot);
 
         static void _bind_methods();
     };

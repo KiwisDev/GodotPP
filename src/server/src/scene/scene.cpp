@@ -1,6 +1,5 @@
 #include "scene/scene.h"
 
-#include <net_serializer.h>
 #include "serialization/serializer.h"
 
 Scene::Scene() = default;

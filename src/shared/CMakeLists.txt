@@ -1,5 +1,4 @@
 add_library(shared STATIC
-        include/net_serializer.h
         include/maths_types.h
         include/utils.h
         include/serialization/serialization_utils.h
