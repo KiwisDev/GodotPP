@@ -40,7 +40,7 @@ namespace godot {
 
         std::deque<WorldSnapshot> snapshots_history;
         double interpolation_frame = 0;
-        uint8_t snapshots_buffer_size = 3;
+        uint8_t snapshots_buffer_size = 5;
 
     public:
         NetworkManager();

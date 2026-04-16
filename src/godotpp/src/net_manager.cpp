@@ -198,7 +198,7 @@ void NetworkManager::update_world(double delta) {
             float difference_frames = static_cast<float>(frameB->frame_number - frameA->frame_number);
             float alpha = (interpolation_frame - frameA->frame_number) / difference_frames;
 
-            UtilityFunctions::print("[CLIENT] Interp frame: ", interpolation_frame, " Frame 1: ", frameA->frame_number, " Frame 2: ", frameB->frame_number, " Alpha: ", alpha);
+            //UtilityFunctions::print("[CLIENT] Interp frame: ", interpolation_frame, " Frame 1: ", frameA->frame_number, " Frame 2: ", frameB->frame_number, " Alpha: ", alpha);
 
             std::unordered_map<NetID, const EntitySnapshot*> entities_B;
             entities_B.reserve(frameB->entities.size());
