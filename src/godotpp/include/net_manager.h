@@ -39,7 +39,8 @@ namespace godot {
         float ping_timer = 0.0f;
 
         std::deque<WorldSnapshot> snapshots_history;
-        uint64_t interpolation_frame = 0;
+        double interpolation_frame = 0;
+        uint8_t snapshots_buffer_size = 3;
 
     public:
         NetworkManager();

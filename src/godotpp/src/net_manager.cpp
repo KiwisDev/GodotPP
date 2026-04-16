@@ -130,6 +130,10 @@ void NetworkManager::process_socket(double delta) {
                 if (snapshots_history.size() == 0 || (snapshots_history[snapshots_history.size()-1].frame_number < snapshot_packet.frame_number))
                 {
                     snapshots_history.push_back(WorldSnapshot{snapshot_packet.frame_number});
+                    if (snapshots_history.size() > snapshots_buffer_size)
+                    {
+                        snapshots_history.pop_front();
+                    }
                     StreamReader reader(snapshot_packet.data);
                     process_snapshot(reader, snapshots_history[snapshots_history.size()-1]);
                 }
@@ -155,7 +159,7 @@ void NetworkManager::process_socket(double delta) {
 }
 
 void NetworkManager::update_world(double delta) {
-    if (snapshots_history.size() >= 2) {
+    if (snapshots_history.size() >= snapshots_buffer_size) {
         if (interpolation_frame == 0)
         {
             auto it = std::min_element(snapshots_history.begin(), snapshots_history.end(),
@@ -168,7 +172,14 @@ void NetworkManager::update_world(double delta) {
         }
         else
         {
-            interpolation_frame += delta;
+            interpolation_frame += (delta * 60.0);
+
+            double newest_frame = snapshots_history.back().frame_number;
+
+            if (interpolation_frame > newest_frame)
+            {
+                interpolation_frame = newest_frame;
+            }
         }
 
         WorldSnapshot* frameA = nullptr;
@@ -187,6 +198,8 @@ void NetworkManager::update_world(double delta) {
             float difference_frames = static_cast<float>(frameB->frame_number - frameA->frame_number);
             float alpha = (interpolation_frame - frameA->frame_number) / difference_frames;
 
+            UtilityFunctions::print("[CLIENT] Interp frame: ", interpolation_frame, " Frame 1: ", frameA->frame_number, " Frame 2: ", frameB->frame_number, " Alpha: ", alpha);
+
             std::unordered_map<NetID, const EntitySnapshot*> entities_B;
             entities_B.reserve(frameB->entities.size());
 
@@ -201,14 +214,17 @@ void NetworkManager::update_world(double delta) {
 
                 if (it != entities_B.end())
                 {
-                    const EntitySnapshot* entB = it->second;
-                    glm::vec2 interp_pos = glm::mix(entA.position, entB->position, alpha);
-
                     Node* netNode = linking_context.get_node(entA.net_id);
-                    Node2D* node = dynamic_cast<Node2D*>(netNode);
-                    node->set_position(Vector2(interp_pos.x, interp_pos.y));
+                    if (netNode != nullptr)
+                    {
+                        const EntitySnapshot* entB = it->second;
+                        glm::vec2 interp_pos = glm::mix(entA.position, entB->position, alpha);
 
-                    entities_B.erase(it);
+                        Node2D* node = dynamic_cast<Node2D*>(netNode);
+                        node->set_position(Vector2(interp_pos.x, interp_pos.y));
+
+                        entities_B.erase(it);
+                    }
                 }
                 else
                 {
@@ -216,9 +232,9 @@ void NetworkManager::update_world(double delta) {
                 }
             }
 
-            for (const auto& pair : entities_B) {
+            for (const auto& pair : entities_B)
+            {
                 const EntitySnapshot* new_entB = pair.second;
-
                 Node* spawned_node = linking_context.spawn_network_object(new_entB->net_id, new_entB->type_id);
                 if (spawned_node)
                 {
@@ -229,6 +245,7 @@ void NetworkManager::update_world(double delta) {
                 }
             }
         }
+        else {UtilityFunctions::print("UH OH");}
     }
 }
 
@@ -254,28 +271,6 @@ void NetworkManager::process_snapshot(StreamReader& reader, WorldSnapshot& snaps
 
         EntitySnapshot entity_snapshot{*k_netID, *k_typeID, std::move(*k_position)};
         snapshot.entities.push_back(entity_snapshot);
-
-        /*NetID netID = reader.read<uint32_t>().value();
-        TypeID typeID = reader.read<uint32_t>().value();
-        glm::vec2 position = reader.read_vec2_quantized(-5000.0f, 5000.0f, 2).value();
-
-        Node* netNode = linking_context.get_node(netID);
-        if (netNode == nullptr)
-        {
-            Node* spawned_node = linking_context.spawn_network_object(netID, typeID);
-            if (spawned_node)
-            {
-                add_child(spawned_node);
-                Node2D* spawned_node_2d = dynamic_cast<Node2D*>(spawned_node);
-                if (spawned_node_2d != nullptr) spawned_node_2d->set_position(Vector2(position.x, position.y));
-                UtilityFunctions::print("[CLIENT] Spawned ID: ", netID, " at: ", position.x, ", ", position.y);
-            }
-        }
-        else
-        {
-            Node2D* node = dynamic_cast<Node2D*>(netNode);
-            node->set_position(Vector2(position.x, position.y));
-        }*/
     }
 }
 
