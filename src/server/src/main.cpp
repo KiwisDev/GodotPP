@@ -86,6 +86,16 @@ int main() {
                     world.registry.emplace<VelocityComponent>(new_player_entity);
                     world.registry.emplace<ClientComponent>(new_player_entity, sender_address, next_netID);
 
+                    HandshakePacket hs_packet;
+                    hs_packet.type = PacketType::HANDSHAKE;
+                    hs_packet.net_id = next_netID;
+
+                    StreamWriter w;
+                    hs_packet.serialize(w);
+                    std::vector<uint8_t> hs_packet_data = w.finish();
+
+                    net_socket_send(socket, sender_address, hs_packet_data.data(), hs_packet_data.size());
+
                     ++next_userID;
                     ++next_netID;
                 }
@@ -176,6 +186,7 @@ int main() {
             char char_address[128];
             std::strncpy(char_address, client_address.c_str(), 128);
 
+            //if (frame_counter % 3 == 1) {net_socket_send(socket, char_address, snapshot_data.data(), snapshot_data.size());}
             net_socket_send(socket, char_address, snapshot_data.data(), snapshot_data.size());
         }
 

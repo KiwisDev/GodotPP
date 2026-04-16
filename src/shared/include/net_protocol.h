@@ -15,7 +15,8 @@ enum class PacketType : uint8_t
     INPUT = 2,
     PING = 3,
     PONG = 4,
-    WORLD_SNAPSHOT = 5
+    WORLD_SNAPSHOT = 5,
+    HANDSHAKE = 6
 };
 
 struct WorldSnapshotPacket
@@ -74,6 +75,30 @@ struct HelloPacket
         }
 
         return HelloPacket{static_cast<PacketType>(*k_type), *k_x, *k_y};
+    }
+};
+
+struct HandshakePacket {
+    PacketType type;
+    NetID net_id;
+
+    void serialize(StreamWriter &w) const
+    {
+        w.write<uint8_t>(static_cast<uint8_t>(type));
+        w.write<uint32_t>(net_id);
+    }
+
+    static std::optional<HandshakePacket> deserialize(StreamReader &r)
+    {
+        const auto k_type = r.read<uint8_t>();
+        const auto k_net_id = r.read<NetID>();
+
+        if (!k_type || !k_net_id)
+        {
+            return std::nullopt;
+        }
+
+        return HandshakePacket{static_cast<PacketType>(*k_type), *k_net_id};
     }
 };
 

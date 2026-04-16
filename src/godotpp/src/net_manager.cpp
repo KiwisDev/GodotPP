@@ -116,6 +116,19 @@ void NetworkManager::process_socket(double delta) {
 
                 UtilityFunctions::print("[PING #", pong_packet.id, "] RTT = ", rtt, " ms");
             }
+            else if (packet_type == PacketType::HANDSHAKE)
+            {
+                r = StreamReader(read_buffer);
+                auto k_hs_packet = HandshakePacket::deserialize(r);
+                if (!k_hs_packet)
+                {
+                    UtilityFunctions::print("[SERVER] Failed to read Handshake");
+                    continue;
+                }
+                HandshakePacket hs_packet = *k_hs_packet;
+
+                myNetID = hs_packet.net_id;
+            }
             else if (packet_type == PacketType::WORLD_SNAPSHOT)
             {
                 r = StreamReader(read_buffer);
@@ -219,6 +232,9 @@ void NetworkManager::update_world(double delta) {
                     {
                         const EntitySnapshot* entB = it->second;
                         glm::vec2 interp_pos = glm::mix(entA.position, entB->position, alpha);
+                        if (entA.net_id == myNetID) {
+                            interp_pos = glm::vec2(entB->position.x, entB->position.y);
+                        }
 
                         Node2D* node = dynamic_cast<Node2D*>(netNode);
                         node->set_position(Vector2(interp_pos.x, interp_pos.y));

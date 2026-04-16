@@ -42,6 +42,8 @@ namespace godot {
         double interpolation_frame = 0;
         uint8_t snapshots_buffer_size = 5;
 
+        NetID myNetID = 0;
+
     public:
         NetworkManager();
         ~NetworkManager();
