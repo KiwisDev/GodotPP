@@ -23,12 +23,14 @@ struct WorldSnapshotPacket
 {
     PacketType type;
     uint64_t frame_number;
+    uint32_t last_processed_input_sequence;
     std::vector<uint8_t> data;
 
     void serialize(StreamWriter &w) const
     {
         w.write<uint8_t>(static_cast<uint8_t>(type));
         w.write<uint64_t>(frame_number);
+        w.write<uint32_t>(last_processed_input_sequence);
         w.write_bytes(data);
     }
 
@@ -36,9 +38,10 @@ struct WorldSnapshotPacket
     {
         const auto k_type = r.read<uint8_t>();
         const auto k_frame_number = r.read<uint64_t>();
+        const auto k_last_processed_input_sequence = r.read<uint32_t>();
         const auto k_data_size = r.read<uint32_t>();
 
-        if (!k_type || !k_frame_number || !k_data_size)
+        if (!k_type || !k_frame_number || !k_last_processed_input_sequence || !k_data_size)
         {
             return std::nullopt;
         }
@@ -46,7 +49,7 @@ struct WorldSnapshotPacket
         const auto k_data = r.read_bytes(*k_data_size);
         std::vector<uint8_t> data(k_data->begin(), k_data->end());
 
-        return WorldSnapshotPacket{static_cast<PacketType>(*k_type), *k_frame_number, std::move(data)};
+        return WorldSnapshotPacket{static_cast<PacketType>(*k_type), *k_frame_number, *k_last_processed_input_sequence, std::move(data)};
     }
 };
 

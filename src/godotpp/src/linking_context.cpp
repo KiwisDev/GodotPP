@@ -35,6 +35,25 @@ Node* LinkingContext::spawn_network_object(NetID net_id, TypeID type_id)
     return new_node;
 }
 
+bool LinkingContext::despawn_network_object(NetID net_id)
+{
+    // Check if object exists
+    if (network_to_local.find(net_id) == network_to_local.end())
+    {
+        UtilityFunctions::print("[CLIENT] Object does not exist");
+        return false;
+    }
+
+    Node* node = network_to_local[net_id];
+
+    network_to_local.erase(net_id);
+    local_to_network.erase(node);
+
+    node->queue_free();
+
+    return true;
+}
+
 Node* LinkingContext::get_node(NetID net_id)
 {
     if (network_to_local.find(net_id) != network_to_local.end())

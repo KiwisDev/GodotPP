@@ -3,9 +3,11 @@
 #include <random>
 #include <utils.h>
 #include <godot_cpp/classes/node2d.hpp>
+#include <godot_cpp/classes/scene_tree.hpp>
 #include <godot_cpp/classes/resource_loader.hpp>
 
 #include "serialization/serializer.h"
+#include "player_controller.h"
 
 godot::NetworkManager::NetworkManager() {
     set_process(false);
@@ -16,6 +18,14 @@ godot::NetworkManager::~NetworkManager() {}
 void godot::NetworkManager::_ready()
 {
     Node::_ready();
+
+    Node* found_node = get_tree()->get_first_node_in_group("PlayerController");
+
+    if (found_node)
+    {
+        player_controller_uh = Object::cast_to<PlayerController>(found_node);
+        UtilityFunctions::print("[NetworkManager] PlayerController found");
+    }
 }
 
 int NetworkManager::try_connect(const String &address)
@@ -76,6 +86,7 @@ void godot::NetworkManager::_process(double delta)
     Node::_process(delta);
 
     process_socket(delta);
+    trigger_correct();
     update_world(delta);
 }
 
@@ -115,6 +126,8 @@ void NetworkManager::process_socket(double delta) {
                 uint64_t rtt = t2 - pong_packet.t0;
 
                 UtilityFunctions::print("[PING #", pong_packet.id, "] RTT = ", rtt, " ms");
+
+                rtt = rtt;
             }
             else if (packet_type == PacketType::HANDSHAKE)
             {
@@ -142,6 +155,9 @@ void NetworkManager::process_socket(double delta) {
 
                 if (snapshots_history.size() == 0 || (snapshots_history[snapshots_history.size()-1].frame_number < snapshot_packet.frame_number))
                 {
+                    server_frame = snapshot_packet.frame_number + std::round(((rtt/2)/1000) / (1.0/60.0));
+                    last_server_process_input = snapshot_packet.last_processed_input_sequence;
+
                     snapshots_history.push_back(WorldSnapshot{snapshot_packet.frame_number});
                     if (snapshots_history.size() > snapshots_buffer_size)
                     {
@@ -232,12 +248,10 @@ void NetworkManager::update_world(double delta) {
                     {
                         const EntitySnapshot* entB = it->second;
                         glm::vec2 interp_pos = glm::mix(entA.position, entB->position, alpha);
-                        if (entA.net_id == myNetID) {
-                            interp_pos = glm::vec2(entB->position.x, entB->position.y);
+                        if (entA.net_id != myNetID) {
+                            Node2D* node = dynamic_cast<Node2D*>(netNode);
+                            node->set_position(Vector2(interp_pos.x, interp_pos.y));
                         }
-
-                        Node2D* node = dynamic_cast<Node2D*>(netNode);
-                        node->set_position(Vector2(interp_pos.x, interp_pos.y));
 
                         entities_B.erase(it);
                     }
@@ -245,6 +259,7 @@ void NetworkManager::update_world(double delta) {
                 else
                 {
                     // Entity has been deleted
+                    linking_context.despawn_network_object(entA.net_id);
                 }
             }
 
@@ -261,7 +276,20 @@ void NetworkManager::update_world(double delta) {
                 }
             }
         }
-        else {UtilityFunctions::print("UH OH");}
+    }
+}
+
+void NetworkManager::trigger_correct()
+{
+    if (!snapshots_history.empty())
+    {
+        for (auto entity : snapshots_history[snapshots_history.size() - 1].entities)
+        {
+            if (entity.net_id == myNetID)
+            {
+                player_controller_uh->correct_movement(Vector2(entity.position.x, entity.position.y), last_server_process_input);
+            }
+        }
     }
 }
 

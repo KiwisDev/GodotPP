@@ -22,11 +22,15 @@ struct WorldSnapshot {
 };
 
 namespace godot {
+    class PlayerController;
+
     class NetworkManager : public Node
     {
         GDCLASS(NetworkManager, Node)
 
     protected:
+        PlayerController* player_controller_uh = nullptr;
+
         String server_address = "127.0.0.1:5000";
         GameSocket *socket;
 
@@ -37,10 +41,14 @@ namespace godot {
 
         uint32_t ping_id_counter = 0;
         float ping_timer = 0.0f;
+        uint64_t rtt = 0;
 
         std::deque<WorldSnapshot> snapshots_history;
         double interpolation_frame = 0;
-        uint8_t snapshots_buffer_size = 5;
+        uint8_t snapshots_buffer_size = 10;
+
+        uint64_t server_frame = 0;
+        uint32_t last_server_process_input = 0;
 
         NetID myNetID = 0;
 
@@ -58,10 +66,16 @@ namespace godot {
 
         void disconnect();
 
+        uint64_t get_local_player_net_id() const { return myNetID; }
+
+        LinkingContext* get_linking_context() { return &linking_context; }
+
     protected:
         void process_socket(double delta);
 
         void update_world(double delta);
+
+        void trigger_correct();
 
         void process_snapshot(StreamReader& reader, WorldSnapshot& snapshot);
 

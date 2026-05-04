@@ -27,6 +27,8 @@ public:
 
     Node* spawn_network_object(NetID net_id, TypeID type_id);
 
+    bool despawn_network_object(NetID net_id);
+
     Node* get_node(NetID net_id);
 };
 

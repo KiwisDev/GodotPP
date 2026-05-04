@@ -164,30 +164,23 @@ int main() {
         }
 
         // Send world state
-        std::vector<std::string> address_list;
-        auto clients_view = world.registry.view<ClientComponent>();
-        for (auto entity : clients_view)
-        {
-            auto& client = clients_view.get<ClientComponent>(entity);
-            address_list.emplace_back(client.address);
-        }
-
         std::vector<uint8_t> world_snapshot = world.SerializeWorld();
         WorldSnapshotPacket snapshot_packet;
         snapshot_packet.type = PacketType::WORLD_SNAPSHOT;
         snapshot_packet.frame_number = frame_counter;
         snapshot_packet.data = world_snapshot;
 
-        StreamWriter w;
-        snapshot_packet.serialize(w);
-        std::vector<uint8_t> snapshot_data = w.finish();
+        auto clients_view = world.registry.view<ClientComponent>();
+        for (auto entity : clients_view)
+        {
+            auto& client = clients_view.get<ClientComponent>(entity);
 
-        for (auto client_address : address_list) {
-            char char_address[128];
-            std::strncpy(char_address, client_address.c_str(), 128);
+            snapshot_packet.last_processed_input_sequence = client.last_processed_sequence;
+            StreamWriter w;
+            snapshot_packet.serialize(w);
+            std::vector<uint8_t> snapshot_data = w.finish();
 
-            //if (frame_counter % 3 == 1) {net_socket_send(socket, char_address, snapshot_data.data(), snapshot_data.size());}
-            net_socket_send(socket, char_address, snapshot_data.data(), snapshot_data.size());
+            net_socket_send(socket, client.address, snapshot_data.data(), snapshot_data.size());
         }
 
         auto frame_end = clock::now();
@@ -203,14 +196,19 @@ int main() {
 
 void process_client_input(TransformComponent& transform, const InputData& input)
 {
-    bool up = (input.keys & FLAG_UP) != 0;
-    bool down = (input.keys & FLAG_DOWN) != 0;
-    bool left = (input.keys & FLAG_LEFT) != 0;
-    bool right = (input.keys & FLAG_RIGHT) != 0;
-    bool action = (input.keys & FLAG_ACTION) != 0;
+    float speed = 150.0f;
+    glm::vec2 velocity(0, 0);
 
-    if (up) transform.position.y -= 50 * (1.0f/60.0f);
-    if (down) transform.position.y += 50 * (1.0f/60.0f);
-    if (left) transform.position.x -= 50 * (1.0f/60.0f);
-    if (right) transform.position.x += 50 * (1.0f/60.0f);
+    if (input.keys & FLAG_UP) velocity.y -= 1;
+    if (input.keys & FLAG_DOWN) velocity.y += 1;
+    if (input.keys & FLAG_LEFT) velocity.x -= 1;
+    if (input.keys & FLAG_LEFT) velocity.y -= 0.2;
+    if (input.keys & FLAG_RIGHT) velocity.x += 1;
+
+    if (length(velocity) > 0) {
+        velocity = normalize(velocity);
+    }
+
+    glm::vec2 new_pos = transform.position + (velocity * speed * 1.0f/60.0f);
+    transform.position = new_pos;
 }
