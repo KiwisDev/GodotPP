@@ -202,7 +202,6 @@ void process_client_input(TransformComponent& transform, const InputData& input)
     if (input.keys & FLAG_UP) velocity.y -= 1;
     if (input.keys & FLAG_DOWN) velocity.y += 1;
     if (input.keys & FLAG_LEFT) velocity.x -= 1;
-    if (input.keys & FLAG_LEFT) velocity.y -= 0.2;
     if (input.keys & FLAG_RIGHT) velocity.x += 1;
 
     if (length(velocity) > 0) {
